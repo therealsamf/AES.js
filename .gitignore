@@ -1,3 +1,6 @@
 
 # Ignore pdf
 aes.pdf
+
+# Node Modules
+node_modules/
