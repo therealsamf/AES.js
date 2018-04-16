@@ -21,6 +21,15 @@ function start(args) {
     printVersion();
     return;
   }
+
+  const keysize = getKeysize(args.keysize);
+  if (!keysize) {
+    console.log();
+    printUsage();
+    return;
+  }
+
+
 }
 
 /**
@@ -53,6 +62,41 @@ function printVersion() {
   catch (err) {
     console.error(chalk.red(err.stack));
   }
+}
+
+/**
+ * @description - Used to get the keysize argument while checking for errors
+ * @param {String} arg - the arg passed in from `--keysize`
+ * @returns {Number}
+ */
+function getKeysize(arg) {
+  // check keysize argument
+  if (!arg) {
+    console.error(chalk.red('Error: Must specify a keysize of 128 or 256'));
+    return null;
+  }
+  
+  const keysize = Number(arg):
+  if (isNaN(keysize)) {
+    console.error(chalk.red('Error: Invalid keysize argument'));
+    return null;
+  }
+
+  if (keysize !== 128 && keysize !== 256) {
+    console.error(chalk.red('Error: Keysize must be either 128 or 256'));
+    return null;
+  }
+
+  return keysize;
+}
+
+/**
+ * @description - Helper method to validate and read a file into memory
+ * @param {String} filename
+ * @returns {String}
+ */
+function readFile(filename) {
+
 }
 
 const argv = minimist(process.argv.slice(2));
