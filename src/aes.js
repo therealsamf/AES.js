@@ -9,7 +9,7 @@ const AES = require('./implementation');
 const encrypt = AES.encrypt;
 const decrypt = AES.decrypt;
 
-const directoryName = path.resolve(__dirname);
+const directoryName = path.resolve(__dirname, '..');
 
 /**
  * @description - Starts the AES process
@@ -26,24 +26,25 @@ function start(args) {
     return;
   }
 
-  const keysize = getKeysize(args.keysize);
+  const keysize = getKeysize(process.env.AES_KEYSIZE || args.keysize);
   if (!keysize) {
     console.log();
     printUsage();
     return;
   }
-  const mode = getMode(args.mode);
+  const mode = getMode(process.env.AES_MODE || args.mode);
   if (!mode) {
     console.log();
     printUsage();
     return;
   }
 
-  const outputFilename = args.outputfilename || 'output.txt';
+  const outputFilename = process.env.AES_OUTPUT_FILE ||
+    args.outputfilename || 'output.txt';
 
   Promise.all([
-    readFile(args.keyfile),
-    readFile(args.inputfile),
+    readFile(process.env.AES_KEY_FILE || args.keyfile),
+    readFile(process.env.AES_INPUT_FILE || args.inputfile),
   ])
     .then(function(key, input) {
       if (mode === 'encrypt') {
@@ -61,23 +62,34 @@ function start(args) {
  * @description - Prints the usage for the user
  */
 function printUsage() {
-  console.log('Usage: node aes.js [arguments]');
+  console.log('Usage: node aes.js [options] [arguments | ' +
+    '--keysize <AES_KEYSIZE=[128|256]> ' +
+    '--keyfile <AES_KEY_FILE> ' +
+    '--inputfile <AES_INPUT_FILE> ' +
+    '--outputfile <AES_OUTPUT_FILE[output.txt]> ' +
+    '--mode <AES_MODE=[encrypt|decrypt]>' +
+    ']'
+  );
+
+  console.log();
+  console.log('Options:');
+  console.log(chalk.gray('-v, --version                ' +
+    'print AES.js version'));
+  console.log(chalk.gray('-h, --help                   ' +
+    'print this help message'));
+
   console.log();
   console.log('Arguments:');
-  console.log(chalk.yellow('-v, --version                ' +
-    'print AES.js version'));
-  console.log(chalk.yellow('-h, --help                   ' +
-    'print this help message'));
-  console.log(chalk.yellow('--keysize=<128|256>          ' +
+  console.log(chalk.gray('--keysize=<128|256>          ' +
     'size of the key for AES, either 128 or 256 bits'));
-  console.log(chalk.yellow('--keyfile                    ' +
+  console.log(chalk.gray('--keyfile                    ' +
     'filename containing a key of the specified size'));
-  console.log(chalk.yellow('--inputfile                  ' +
+  console.log(chalk.gray('--inputfile                  ' +
     'filename containing the input text'));
-  console.log(chalk.yellow('--outputfile=[output.txt]    ' +
+  console.log(chalk.gray('--outputfile=[output.txt]    ' +
     'filename for the result'));
-  console.log(chalk.yellow('--mode=<encrypt|decrypt>     ' +
-    'mode to run the AES algorithm'));
+  console.log(chalk.gray('--mode=<encrypt|decrypt>     ' +
+    'mode in which to run the AES algorithm'));
 }
 
 /**
@@ -91,10 +103,10 @@ function printVersion() {
     const packageJSON = JSON.parse(packageFile);
 
     console.log('NodeJS');
-    console.log(chalk.yellow(process.version));
+    console.log(chalk.gray(process.version));
     console.log();
     console.log('AES.js');
-    console.log(chalk.yellow(`v${packageJSON.version}`));
+    console.log(chalk.gray(`v${packageJSON.version}`));
   } catch (err) {
     console.error(chalk.red(err.stack));
   }
