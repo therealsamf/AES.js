@@ -1,6 +1,7 @@
+'use strict';
 
 /**
- * Folder containing the implementation of the AES algorithm
+ * File containing the implementation of the AES algorithm
  */
 
 /**
