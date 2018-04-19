@@ -4,44 +4,109 @@
  */
 
 /**
- * @description - Rotates a 4 byte word w left by one byte
- * @param {Array} word - array of 4 bytes
- * @return {Array}
- */
-function rotateWord(word) {
-  const first = word[0];
-  word[0] = word[1];
-  word[1] = word[2];
-  word[2] = word[3];
-  word[3] = first;
-
-  return word;
-}
-
-/**
  * @description - Encrypts the input with the key with AES according to
  * the keysize. Outputs the result to the given filename
  * @param {Number} keysize - size of the key, either 128 or 256 bits
- * @param {String} key - the key read in from the file
- * @param {String} input - input read in from the input filename argument
+ * @param {Buffer} key - the key read in from the file
+ * @param {Buffer} input - input read in from the input filename argument
  * @param {String} output - filename to output the results
  */
 function encrypt(keysize, key, input, output) {
-
 }
 
 /**
  * @description - Decrypts the input with the key with AES according to
  * the keysize. Outputs the result to the given filename
  * @param {Number} keysize - size of the key, either 128 or 256 bits
- * @param {String} key - the key read in from the file
- * @param {String} input - input read in from the input filename argument
+ * @param {Buffer} key - the key read in from the file
+ * @param {Buffer} input - input read in from the input filename argument
  * @param {String} output - filename to output the results
  */
 function decrypt(keysize, key, input, output) {
 
 }
 
+/**
+ * @description - Takes in the given cipher key and creates an
+ * expanded key schedule intended for use with the AES algorithm
+ * @param {Buffer} key
+ * @param {Number} blockSize - for AES this should always be 4
+ * @param {Number} keyLength - the number of words within the key.
+ *  This is either 4 or 8 for 128 or 256 bit keys respectively
+ * @param {Number} numberOfRounds - Number of rounds for the algorithm,
+ *  determines how many keys to expand
+ * @return {Array}
+ */
+function keyExpansion(key, blockSize, keyLength, numberOfRounds) {
+  const keySchedule = new Array(blockSize * (numberOfRounds + 1));
+
+  // Set the first keyLength words in the key schedule to the given key
+  for (let i = 0; i < keyLength; ++i) {
+    const cipherKeyWord = new Buffer([
+      key[4 * i],
+      key[4 * i + 1],
+      key[4 * i + 2],
+      key[4 * i + 3],
+    ]);
+    keySchedule[i] = cipherKeyWord;
+  }
+
+  let temp = new Buffer(blockSize);
+  // expand the rest of the key
+  for (let i = keyLength; i < keySchedule.length; ++i) {
+    keySchedule[i] = new Buffer(blockSize);
+    for (let t = 0; t < 4; ++t) {
+      temp[t] = keySchedule[i - 1][t];
+    }
+
+    /* apply transformation for words in a position that
+     * is a multiple of the keylength */
+    if (i % keyLength === 0) {
+      temp = subWord(rotateWord(temp));
+      for (let t = 0; t < temp.length; ++t) {
+        temp[t] ^= roundConstant[i / keyLength][t];
+      }
+    } else if (keyLength > 6 && i % keyLength === 4) {
+      temp = subWord(temp);
+    }
+
+    for (let t = 0; t < 4; ++t) {
+      keySchedule[i][t] = keySchedule[i - keyLength][t] ^ temp[t];
+    }
+  }
+
+  return keySchedule;
+}
+
+/**
+ * @description - Applies the sBox to every byte within the word in place
+ *  and returns it
+ * @param {Buffer} word
+ * @return {Buffer}
+ */
+function subWord(word) {
+  for (let i = 0; i < word.length; ++i) {
+    word[i] = sBox[word[i]];
+  }
+
+  return word;
+}
+
+/**
+ * @description - Rotates a word to the left one byte in place and returns it
+ * @param {Buffer} word
+ * @return {Buffer}
+ */
+function rotateWord(word) {
+  const first = word[0];
+
+  for (let i = 0; i < word.length - 1; ++i) {
+    word[i] = word[i + 1];
+  }
+
+  word[word.length - 1] = first;
+  return word;
+}
 
 /* Precomputed multiplication in the AES algorithm.
  * This represents the multiplicative inverse in the Galois Field(2^8) */
@@ -85,6 +150,8 @@ const roundConstant = [
 ];
 
 module.exports = {
-  encrypt: encrypt,
-  decrypt: decrypt,
+  encrypt,
+  decrypt,
+  rotateWord,
+  keyExpansion,
 };

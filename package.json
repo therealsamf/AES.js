@@ -5,7 +5,8 @@
   "bin": "src/aes.js",
   "scripts": {
     "start": "node src/aes.js",
-    "lint": "eslint ./src/**/*.js"
+    "lint": "eslint ./src/**/*.js",
+    "test": "mocha --require babel-register ./src/**/*.test.js"
   },
   "keywords": [
     "aes",
@@ -19,7 +20,12 @@
     "minimist": "^1.2.0"
   },
   "devDependencies": {
+    "babel-preset-es2015": "^6.24.1",
+    "babel-register": "^6.26.0",
+    "chai": "^4.1.2",
     "eslint": "^4.19.1",
-    "eslint-config-google": "^0.9.1"
+    "eslint-config-google": "^0.9.1",
+    "mocha": "^5.1.1",
+    "proxyquire": "^2.0.1"
   }
 }
