@@ -4,6 +4,7 @@
   },
   "extends": "google",
   "rules": {
+    "object-curly-spacing": ["error", "always", { "arraysInObjects": false }],
     "linebreak-style": "off"
   },
   "env": {
