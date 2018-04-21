@@ -46,7 +46,7 @@ describe('implementation.js', function() {
   });
 
   describe('inverseCipher', function() {
-    it('Correctly descrypts with a 128-byte key', function() {
+    it('Correctly decrypts with a 128-byte key', function() {
       const { keyExpansion, inverseCipher } = getImplemenation();
       const keySchedule = keyExpansion(key128, blockSize, 4, 10);
 
@@ -58,7 +58,7 @@ describe('implementation.js', function() {
       );
     });
 
-    it('Correctly descrypts with a 256-byte key', function() {
+    it('Correctly decrypts with a 256-byte key', function() {
       const { keyExpansion, inverseCipher } = getImplemenation();
       const keySchedule = keyExpansion(key256, blockSize, 8, 14);
 
