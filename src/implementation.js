@@ -13,6 +13,7 @@
  * @param {String} output - filename to output the results
  */
 function encrypt(keysize, key, input, output) {
+
 }
 
 /**
@@ -21,10 +22,136 @@ function encrypt(keysize, key, input, output) {
  * @param {Number} keysize - size of the key, either 128 or 256 bits
  * @param {Buffer} key - the key read in from the file
  * @param {Buffer} input - input read in from the input filename argument
- * @param {String} output - filename to output the results
+ * @param {Buffer} output - filename to output the results
  */
 function decrypt(keysize, key, input, output) {
 
+}
+
+/**
+ * @description - Encrypts a single buffer of 16 bytes
+ * @param {Buffer} input
+ * @param {Array} keySchedule - schedule of keys created with
+ * {@link keyExpansion}
+ * @param {Number} numberOfRounds - either 10 or 14 for 128-bit
+ * or 256-bit keys respectively
+ * @return {Buffer}
+ */
+function cipher(input, keySchedule, numberOfRounds) {
+  const blockSize = 4; // this always is 4 for the AES algorithm
+
+  const state = [[], [], [], []];
+  for (let row = 0; row < 4; ++row) {
+    for (let column = 0; column < blockSize; ++column) {
+      state[row].push(input[row + 4 * column]);
+    }
+  }
+
+  addRoundKey(state, keySchedule, 0, blockSize);
+
+  for (let round = 1; round < numberOfRounds; ++round) {
+    subBytes(state, blockSize);
+    shiftRows(state, blockSize);
+    mixColumns(state, blockSize);
+    addRoundKey(state, keySchedule, round, blockSize);
+  }
+
+  subBytes(state, blockSize);
+  shiftRows(state, blockSize);
+  addRoundKey(state, keySchedule, numberOfRounds, blockSize);
+
+  const output = new Buffer(4 * blockSize);
+  for (let row = 0; row < 4; ++row) {
+    for (let column = 0; column < blockSize; ++column) {
+      output[row + 4 * column] = state[row][column];
+    }
+  }
+
+  return output;
+}
+
+/**
+ * @description - Performs addition on the state in place using the current
+ * round key. In AES, addition is defined as XOR
+ * @param {Array} state
+ * @param {Array} keySchedule
+ * @param {Number} round
+ * @param {Number} [blockSize=4]
+ * @return {Array}
+ */
+function addRoundKey(state, keySchedule, round, blockSize = 4) {
+  for (let row = 0; row < 4; ++row) {
+    for (let column = 0; column < blockSize; ++column) {
+      state[row][column] ^= keySchedule[round * 4 + column][row];
+    }
+  }
+
+  return state;
+}
+
+/**
+ * @description - Performs multiplication on the state in place within
+ * the Galois field. We use a substitution look up table instead of
+ * any actual multiplication
+ * @param {Array} state
+ * @param {Number} [blockSize=4]
+ * @return {Array}
+ */
+function subBytes(state, blockSize = 4) {
+  for (let row = 0; row < 4; ++row) {
+    for (let column = 0; column < blockSize; ++column) {
+      state[row][column] = sBox[state[row][column]];
+    }
+  }
+
+  return state;
+}
+
+/**
+ * @description - Shifts the rows of the given state according to the AES spec.
+ * Performs this operation in place
+ * @param {Array} state
+ * @param {Number} [blockSize=4]
+ * @return {Array};
+ */
+function shiftRows(state, blockSize = 4) {
+  const temp = new Array(4);
+  for (let row = 1; row < 4; ++row) {
+    for (let column = 0; column < blockSize; ++column) {
+      temp[column] = state[row][(column + row) % blockSize];
+    }
+    for (let column = 0; column < blockSize; ++column) {
+      state[row][column] = temp[column];
+    }
+  }
+  return state;
+}
+
+/**
+ * @description - Operates on the state in place column by column
+ * @param {Array} state
+ * @param {Number} [blockSize=4]
+ * @return {Array}
+ */
+function mixColumns(state, blockSize = 4) {
+  for (let column = 0; column < blockSize; ++column) {
+    const copy = new Array(blockSize);
+    const shift = new Array(blockSize);
+
+    for (let row = 0; row < 4; ++row) {
+      copy[row] = state[row][column];
+      // In the case of overflow, add value
+      shift[row] = state[row][column] & 0x80 ?
+        state[row][column] << 1 ^ 0x011b :
+        state[row][column] << 1;
+    }
+    state[0][column] = shift[0] ^ copy[1] ^ shift[1] ^ copy[2] ^ copy[3];
+    state[1][column] = copy[0] ^ shift[1] ^ copy[2] ^ shift[2] ^ copy[3];
+    state[2][column] = copy[0] ^ copy[1] ^ shift[2] ^ copy[3] ^ shift[3];
+    state[3][column] = copy[0] ^ shift[0] ^ copy[1] ^ copy[2] ^ shift[3];
+  }
+
+  return state;
 }
 
 /**
@@ -82,8 +209,8 @@ function keyExpansion(key, blockSize, keyLength, numberOfRounds) {
 /**
  * @description - Applies the sBox to every byte within the word in place
  *  and returns it
- * @param {Buffer} word
- * @return {Buffer}
+ * @param {Buffer|Array} word
+ * @return {Buffer|Array}
  */
 function subWord(word) {
   for (let i = 0; i < word.length; ++i) {
@@ -95,8 +222,8 @@ function subWord(word) {
 
 /**
  * @description - Rotates a word to the left one byte in place and returns it
- * @param {Buffer} word
- * @return {Buffer}
+ * @param {Buffer|Array} word
+ * @return {Buffer|Array}
  */
 function rotateWord(word) {
   const first = word[0];
@@ -153,6 +280,11 @@ const roundConstant = [
 module.exports = {
   encrypt,
   decrypt,
+  cipher,
   rotateWord,
+  subBytes,
+  addRoundKey,
+  shiftRows,
+  mixColumns,
   keyExpansion,
 };

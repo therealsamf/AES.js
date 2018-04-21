@@ -4,9 +4,10 @@
  */
 
 const proxyquire = require('proxyquire').noPreserveCache().noCallThru();
-const {assert} = require('chai');
+const { assert } = require('chai');
 
 describe('implementation.js', function() {
+  const blockSize = 4;
   /**
    * @description - Helper function that uses proxyquire to retrieve and
    *  evaluate the implementation module
@@ -19,7 +20,7 @@ describe('implementation.js', function() {
 
   describe('rotateWord()', function() {
     it('Rotates a 4 length buffer object correctly', function() {
-      const {rotateWord} = getImplemenation();
+      const { rotateWord } = getImplemenation();
       const word = new Buffer([0x00, 0x01, 0x02, 0x03]);
       const expectedResult = new Buffer([0x01, 0x02, 0x03, 0x00]);
 
@@ -29,6 +30,169 @@ describe('implementation.js', function() {
           ` to equal ${expectedResult.toString('hex')}`
       );
     });
+  });
+
+  describe('addRoundKey', function() {
+    const state = [
+      [0x00, 0x44, 0x88, 0xcc],
+      [0x11, 0x55, 0x99, 0xdd],
+      [0x22, 0x66, 0xaa, 0xee],
+      [0x33, 0x77, 0xbb, 0xff],
+    ];
+    const expectedResult = [
+      [0x00, 0x40, 0x80, 0xc0],
+      [0x10, 0x50, 0x90, 0xd0],
+      [0x20, 0x60, 0xa0, 0xe0],
+      [0x30, 0x70, 0xb0, 0xf0],
+    ];
+
+    const key = new Buffer([
+      0x00, 0x01, 0x02, 0x03,
+      0x04, 0x05, 0x06, 0x07,
+      0x08, 0x09, 0x0a, 0x0b,
+      0x0c, 0x0d, 0x0e, 0x0f,
+    ]);
+
+    it('Correctly adds the current round\'s 128-bit key', function() {
+      const { addRoundKey, keyExpansion } = getImplemenation();
+      const keySchedule = keyExpansion(key, blockSize, 4, 10);
+
+      const output = addRoundKey(copyState(state), keySchedule, 0, blockSize);
+      assert.deepEqual(output, expectedResult,
+        'addRoundKey() didn\'t add the round key correctly'
+      );
+    });
+  });
+
+  describe('subBytes()', function() {
+    const state = [
+      [0x00, 0x10, 0x20, 0x30],
+      [0x40, 0x50, 0x60, 0x70],
+      [0x80, 0x90, 0xa0, 0xb0],
+      [0xc0, 0xd0, 0xe0, 0xf0],
+    ];
+    const expectedResult = [
+      [0x63, 0xca, 0xb7, 0x04],
+      [0x09, 0x53, 0xd0, 0x51],
+      [0xcd, 0x60, 0xe0, 0xe7],
+      [0xba, 0x70, 0xe1, 0x8c],
+    ];
+
+    it('Substitutes the bytes correctly', function() {
+      const { subBytes } = getImplemenation();
+      const output = subBytes(copyState(state), blockSize);
+
+      assert.deepEqual(output, expectedResult,
+        'subBytes() didn\'t correctly substitute the values');
+    });
+
+    it('Substitutes the bytes correctly in place', function() {
+      const { subBytes } = getImplemenation();
+      const stateCopy = copyState(state);
+
+      subBytes(stateCopy, blockSize);
+
+      assert.deepEqual(stateCopy, expectedResult,
+        'subBytes() didn\'t correctly substitute the values'
+      );
+    });
+  });
+
+  describe('shiftRows()', function() {
+    const state = [
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+      [9, 10, 11, 12],
+      [13, 14, 15, 16],
+    ];
+    const expectedResult = [
+      [1, 2, 3, 4],
+      [6, 7, 8, 5],
+      [11, 12, 9, 10],
+      [16, 13, 14, 15],
+    ];
+
+    it('Shifts the rows of the given state in place properly', function() {
+      const { shiftRows } = getImplemenation();
+      const newState = copyState(state);
+
+      shiftRows(newState, 4);
+      assert.deepEqual(newState, expectedResult,
+        'shiftRows() didn\'t correctly shift the state'
+      );
+    });
+
+    it('Shifts the rows of the given state properly', function() {
+      const { shiftRows } = getImplemenation();
+      const newState = copyState(state);
+
+      const shiftedState = shiftRows(newState, 4);
+      assert.deepEqual(shiftedState, expectedResult,
+        'shiftRows() didn\'t correctly shift the state'
+      );
+      assert.strictEqual(shiftedState, newState,
+        'shiftRows() didn\'t return a reference to the original parameter'
+      );
+    });
+  });
+
+  describe('mixColumns()', function() {
+    const input = new Buffer([
+      0x63, 0x53, 0xe0, 0x8c,
+      0x09, 0x60, 0xe1, 0x04,
+      0xcd, 0x70, 0xb7, 0x51,
+      0xba, 0xca, 0xd0, 0xe7,
+    ]);
+    const output = new Buffer([
+      0x5f, 0x72, 0x64, 0x15,
+      0x57, 0xf5, 0xbc, 0x92,
+      0xf7, 0xbe, 0x3b, 0x29,
+      0x1d, 0xb9, 0xf9, 0x1a,
+    ]);
+
+    it('Mixes the state columns correctly in place', function() {
+      const { mixColumns } = getImplemenation();
+      const state = copyInputToState(input);
+      const expectedResult = copyInputToState(output);
+
+      mixColumns(state);
+
+      assert.deepEqual(state, expectedResult,
+        'mixColumns() didn\'t produce the correct output'
+      );
+    });
+
+    it('Mixes the state columns correctly', function() {
+      const { mixColumns } = getImplemenation();
+      const state = copyInputToState(input);
+      const expectedResult = copyInputToState(output);
+
+      const newState = mixColumns(state);
+
+      assert.deepEqual(state, expectedResult,
+        'mixColumns() didn\'t produce the correct output'
+      );
+      assert.strictEqual(state, newState,
+        'mixColumns() returned a new array instead of the input'
+      );
+    });
+
+    /**
+     * @description - Copys an array of bytes to a 2D state
+     * array
+     * @param {Array|Buffer} input
+     * @return {State}
+     */
+    function copyInputToState(input) {
+      const state = [[], [], [], []];
+      for (let row = 0; row < 4; ++row) {
+        for (let column = 0; column < blockSize; ++column) {
+          state[row].push(input[row + 4 * column]);
+        }
+      }
+
+      return state;
+    }
   });
 
   describe('keyExpansion()', function() {
@@ -83,7 +247,7 @@ describe('implementation.js', function() {
     function compareKey({
       cipherKey, expandedKey, blockSize, keyLength, numRounds,
     }) {
-      const {keyExpansion} = getImplemenation();
+      const { keyExpansion } = getImplemenation();
       const keySchedule = keyExpansion(
         cipherKey,
         blockSize,
@@ -99,6 +263,15 @@ describe('implementation.js', function() {
       });
     }
   });
+
+  /**
+   * @description - Deep copies a state array
+   * @param {Array} state
+   * @return {Array}
+   */
+  function copyState(state) {
+    return state.map((row) => row.slice());
+  }
 });
 
 /* Results taken from
