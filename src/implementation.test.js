@@ -98,6 +98,40 @@ describe('implementation.js', function() {
     });
   });
 
+  describe('invSubBytes()', function() {
+    const state = [
+      [0x63, 0x53, 0xe0, 0x8c],
+      [0x09, 0x60, 0xe1, 0x04],
+      [0xcd, 0x70, 0xb7, 0x51],
+      [0xba, 0xca, 0xd0, 0xe7],
+    ];
+    const expectedResult = [
+      [0x00, 0x50, 0xa0, 0xf0],
+      [0x40, 0x90, 0xe0, 0x30],
+      [0x80, 0xd0, 0x20, 0x70],
+      [0xc0, 0x10, 0x60, 0xb0],
+    ];
+
+    it('Substitutes the bytes correctly', function() {
+      const { invSubBytes } = getImplemenation();
+      const output = invSubBytes(copyState(state), blockSize);
+
+      assert.deepEqual(output, expectedResult,
+        'invSubBytes() didn\'t correctly substitute the values');
+    });
+
+    it('Substitutes the bytes correctly in place', function() {
+      const { invSubBytes } = getImplemenation();
+      const stateCopy = copyState(state);
+
+      invSubBytes(stateCopy, blockSize);
+
+      assert.deepEqual(stateCopy, expectedResult,
+        'invSubBytes() didn\'t correctly substitute the values'
+      );
+    });
+  });
+
   describe('shiftRows()', function() {
     const state = [
       [1, 2, 3, 4],
@@ -132,6 +166,44 @@ describe('implementation.js', function() {
       );
       assert.strictEqual(shiftedState, newState,
         'shiftRows() didn\'t return a reference to the original parameter'
+      );
+    });
+  });
+
+  describe('invShiftRows()', function() {
+    const state = [
+      [1, 2, 3, 4],
+      [6, 7, 8, 5],
+      [11, 12, 9, 10],
+      [16, 13, 14, 15],
+    ];
+    const expectedResult = [
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+      [9, 10, 11, 12],
+      [13, 14, 15, 16],
+    ];
+
+    it('Shifts the rows of the given state in place properly', function() {
+      const { invShiftRows } = getImplemenation();
+      const newState = copyState(state);
+
+      invShiftRows(newState, 4);
+      assert.deepEqual(newState, expectedResult,
+        'invShiftRows() didn\'t correctly shift the state'
+      );
+    });
+
+    it('Shifts the rows of the given state properly', function() {
+      const { invShiftRows } = getImplemenation();
+      const newState = copyState(state);
+
+      const shiftedState = invShiftRows(newState, 4);
+      assert.deepEqual(shiftedState, expectedResult,
+        'invShiftRows() didn\'t correctly shift the state'
+      );
+      assert.strictEqual(shiftedState, newState,
+        'invShiftRows() didn\'t return a reference to the original parameter'
       );
     });
   });
@@ -176,23 +248,68 @@ describe('implementation.js', function() {
         'mixColumns() returned a new array instead of the input'
       );
     });
+  });
 
-    /**
-     * @description - Copys an array of bytes to a 2D state
-     * array
-     * @param {Array|Buffer} input
-     * @return {State}
-     */
-    function copyInputToState(input) {
-      const state = [[], [], [], []];
-      for (let row = 0; row < 4; ++row) {
-        for (let column = 0; column < blockSize; ++column) {
-          state[row].push(input[row + 4 * column]);
-        }
-      }
+  describe('invMixColumns()', function() {
+    const input = new Buffer([
+      0xc6, 0x2f, 0xe1, 0x09,
+      0xf7, 0x5e, 0xed, 0xc3,
+      0xcc, 0x79, 0x39, 0x5d,
+      0x84, 0xf9, 0xcf, 0x5d,
+    ]);
+    const output = new Buffer([
+      0x9a, 0x39, 0xbf, 0x1d,
+      0x05, 0xb2, 0x0a, 0x3a,
+      0x47, 0x6a, 0x0b, 0xf7,
+      0x9f, 0xe5, 0x11, 0x84,
+    ]);
 
-      return state;
-    }
+    it('Mixes the state columns correctly in place', function() {
+      const { invMixColumns } = getImplemenation();
+      const state = copyInputToState(input);
+      const expectedResult = copyInputToState(output);
+
+      invMixColumns(state);
+
+      assert.deepEqual(state, expectedResult,
+        'invMixColumns() didn\'t produce the correct output'
+      );
+    });
+
+    it('Mixes the state columns correctly', function() {
+      const { invMixColumns } = getImplemenation();
+      const state = copyInputToState(input);
+      const expectedResult = copyInputToState(output);
+
+      const newState = invMixColumns(state);
+
+      assert.deepEqual(state, expectedResult,
+        'invMixColumns() didn\'t produce the correct output'
+      );
+      assert.strictEqual(state, newState,
+        'invMixColumns() returned a new array instead of the input'
+      );
+    });
+  });
+
+  describe('multiply', function() {
+    it('Correctly multiplies 0x53 and 0xca', function() {
+      const { multiply } = getImplemenation();
+      const product = multiply(0x53, 0xca);
+      assert.equal(product, 1, 'multiply() returned the wrong answer');
+    });
+
+    it('Correctly multiplies 0x09 and 0x0e', function() {
+      const { multiply } = getImplemenation();
+      const product = multiply(0x09, 0x0e);
+      assert.equal(product, 0x7e, 'multiply() returned the wrong answer');
+    });
+
+    it('Correctly multiplies 0x0b and 0xff', function() {
+      const { multiply } = getImplemenation();
+      const product = multiply(0x0b, 0xff);
+      assert.equal(product, 0xa3, 'multiply() returned the wrong answer');
+    });
   });
 
   describe('keyExpansion()', function() {
@@ -271,6 +388,23 @@ describe('implementation.js', function() {
    */
   function copyState(state) {
     return state.map((row) => row.slice());
+  }
+
+  /**
+   * @description - Copys an array of bytes to a 2D state
+   * array
+   * @param {Array|Buffer} input
+   * @return {State}
+   */
+  function copyInputToState(input) {
+    const state = [[], [], [], []];
+    for (let row = 0; row < 4; ++row) {
+      for (let column = 0; column < blockSize; ++column) {
+        state[row].push(input[row + 4 * column]);
+      }
+    }
+
+    return state;
   }
 });
 
