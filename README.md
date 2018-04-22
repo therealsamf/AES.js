@@ -46,7 +46,7 @@ npm start -- [options] [arguments]
 | Argument | Type | Description |
 |:---|:---|:---|
 | --keysize | number | Size of the key for AES, either `128` or `256` bits |
-| --keyfile | filename | Filename containing the of the specified size |
+| --keyfile | filename | Filename containing the key of the specified size |
 | --inputfile | filename | Filename of the file containing the input text |
 | --outputfile | filename | Filename where the result will be written. Defaults to `output.txt` |
 | --mode | string | mode in which to run AES. Either `encrypt` or `decrypt` |

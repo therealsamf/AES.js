@@ -89,6 +89,16 @@ describe('implementation.js', function() {
         plainText: '00000000000000000000000000000000',
         cipherText: '1b0d02893683b9f180458e4aa6b73982',
       },
+      {
+        key: 'fffffffffffffffffffffffffffffffffffffffffffff8000000000000000000',
+        plainText: '00000000000000000000000000000000',
+        cipherText: '4570a5a18cfc0dd582f1d88d5c9a1720',
+      },
+      {
+        key: '0000000000000000000000000000000000000000000000000000000000000000',
+        plainText: 'fffffffffffffffffffffff000000000',
+        cipherText: '83a63402a77f9ad5c1e931a931ecd706',
+      },
     ];
 
     // test cases with 24 byte plain texts
@@ -108,6 +118,16 @@ describe('implementation.js', function() {
         plainText: '000000000000000000000000000000001122334455667788',
         cipherText: '1B0D02893683B9F180458E4AA6B73982308D5A40B51DC67DA50F505D6C1AD62C', //eslint-disable-line
       },
+      {
+        key: '0000000000000000000000000000000000000000000000000000000000000000', //eslint-disable-line
+        plainText: 'fffffffffffffffffc000000000000001122334455667788',
+        cipherText: '811441CE1D309EEE7185E8C752C075573AD4C0415F5AC874EAEEB71205C93D09', //eslint-disable-line
+      },
+      {
+        key: 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000',
+        plainText: '000000000000000000000000000000001122334455667788',
+        cipherText: '1E38E759075BA5CAB6457DA51844295AAAADC62FBA7EB7E8010345A00EB4E109', //eslint-disable-line
+      },
     ];
 
     testCases16Byte.forEach(testEncrypt);
@@ -121,7 +141,8 @@ describe('implementation.js', function() {
       const key = new Buffer(testCase.key, 'hex');
       const plainText = new Buffer(testCase.plainText, 'hex');
       const expected = new Buffer(testCase.cipherText, 'hex');
-      it(`Correctly encrypts ${plainText.length}-byte input for 128-bit key`,
+      it(`Correctly encrypts ${plainText.length}-byte ` +
+        `input for ${key.length * 8}-bit key`,
         function(done) {
           const writeStream = new FakeWriteStream();
           const { encrypt } = getImplemenation({
@@ -135,7 +156,7 @@ describe('implementation.js', function() {
             }),
           });
 
-          encrypt(128, key, plainText, '')
+          encrypt(key.length * 8, key, plainText, '')
             .then(function() {
               let output = writeStream.getOutput();
               // don't worry about padding if multiple of state size
@@ -176,6 +197,16 @@ describe('implementation.js', function() {
         plainText: '00000000000000000000000000000000',
         cipherText: '1b0d02893683b9f180458e4aa6b739826c46fedbce041c0edab1246a2a1d2417', //eslint-disable-line
       },
+      {
+        key: 'fffffffffffffffffffffffffffffffffffffffffffff8000000000000000000',
+        plainText: '00000000000000000000000000000000',
+        cipherText: '4570a5a18cfc0dd582f1d88d5c9a1720',
+      },
+      {
+        key: '0000000000000000000000000000000000000000000000000000000000000000',
+        plainText: 'fffffffffffffffffffffff000000000',
+        cipherText: '83a63402a77f9ad5c1e931a931ecd706',
+      },
     ];
 
     // test cases with 24 byte plain texts
@@ -195,6 +226,16 @@ describe('implementation.js', function() {
         plainText: '000000000000000000000000000000001122334455667788',
         cipherText: '1B0D02893683B9F180458E4AA6B73982308D5A40B51DC67DA50F505D6C1AD62C', //eslint-disable-line
       },
+      {
+        key: '0000000000000000000000000000000000000000000000000000000000000000', //eslint-disable-line
+        plainText: 'fffffffffffffffffc000000000000001122334455667788',
+        cipherText: '811441CE1D309EEE7185E8C752C075573AD4C0415F5AC874EAEEB71205C93D09', //eslint-disable-line
+      },
+      {
+        key: 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000',
+        plainText: '000000000000000000000000000000001122334455667788',
+        cipherText: '1E38E759075BA5CAB6457DA51844295AAAADC62FBA7EB7E8010345A00EB4E109', //eslint-disable-line
+      },
     ];
 
     testCases16Byte.forEach(testDecrypt);
@@ -208,7 +249,8 @@ describe('implementation.js', function() {
       const key = new Buffer(testCase.key, 'hex');
       const cipherText = new Buffer(testCase.cipherText, 'hex');
       const expected = new Buffer(testCase.plainText, 'hex');
-      it(`Correctly decrypts ${expected.length}-byte input for 128-bit key`,
+      it(`Correctly decrypts ${expected.length}-byte ` +
+        `input for ${key.length * 8}-bit key`,
         function(done) {
           const writeStream = new FakeWriteStream();
           const { decrypt } = getImplemenation({
@@ -222,7 +264,7 @@ describe('implementation.js', function() {
             }),
           });
 
-          decrypt(128, key, cipherText, '')
+          decrypt(key.length * 8, key, cipherText, '')
             .then(function() {
               const output = writeStream.getOutput();
               assert(output.compare(expected) === 0,
