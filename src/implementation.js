@@ -90,7 +90,87 @@ function encrypt(keySize, key, input, output) {
  * @param {Buffer} output - filename to output the results
  */
 function decrypt(keySize, key, input, output) {
+  let numberOfRounds;
+  let keyLength;
+  const blockSize = 4;
+  const stateSize = blockSize * 4;
 
+  if (keySize === 128) {
+    numberOfRounds = 10;
+    keyLength = 4;
+  } else if (keySize === 256) {
+    numberOfRounds = 14;
+    keyLength = 8;
+  }
+
+  const keySchedule = keyExpansion(key, blockSize, keyLength, numberOfRounds);
+  return new Promise(function(resolve, reject) {
+    fs.open(output, 'w', function(err, fileDescriptor) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(fileDescriptor);
+      }
+    });
+  })
+    .then(function(fd) {
+      const stream = fs.createWriteStream(null, { fd });
+      stream.on('error', function(err) {
+        return Promise.reject(err);
+      });
+
+      const promises = [];
+      const numberOfChunks = input.length / (blockSize * 4);
+      if (numberOfChunks % 1 !== 0) {
+        return Promise.reject(new Error(
+          `Input isn\'t a multiple of ` +
+            `${blockSize * 4}. Aborting`
+        ));
+      }
+
+      for (let i = 0; i < numberOfChunks - 1; ++i) {
+        promises.push(new Promise(function(resolve, reject) {
+          const inputSlice = input.slice(
+            i * stateSize, (i + 1) * stateSize
+          );
+          const output = inverseCipher(inputSlice, keySchedule, numberOfRounds);
+          stream.write(output, function(err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        }));
+      }
+
+      // the last block is special because it contains the padding
+      promises.push(new Promise(function(resolve, reject) {
+        const inputSlice = input.slice(
+          (numberOfChunks - 1) * stateSize, numberOfChunks * stateSize
+        );
+        const paddingOutput = inverseCipher(inputSlice, keySchedule, numberOfRounds);
+        const output = removePaddingFromInput(paddingOutput);
+        if (output.length <= 0) {
+          resolve();
+        } else {
+          stream.write(output, function(err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        }
+      }));
+
+      return promises.reduce(function(total, promise) {
+        return total.then(promise);
+      }, Promise.resolve());
+    })
+    .catch(function(err) {
+      throw err;
+    });
 }
 
 /**

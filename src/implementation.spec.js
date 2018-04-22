@@ -73,7 +73,7 @@ describe('implementation.js', function() {
   });
 
   describe('encrypt()', function() {
-    const testCases = [
+    const testCases16Byte = [
       {
         key: '00000000000000000000000000000000',
         plainText: 'ffffffffffffffffffffffffffffff80',
@@ -91,40 +91,153 @@ describe('implementation.js', function() {
       },
     ];
 
-    testCases.forEach(function(testCase) {
-      it('Correctly encrypts 16-byte input for a 128-bit key', function(done) {
-        const writeStream = new FakeWriteStream();
-        const { encrypt } = getImplemenation({
-          fs: Object.assign(require('fs'), {
-            createWriteStream: () => {
-              return writeStream;
-            },
-            open: (path, flag, callback) => {
-              callback(null);
-            },
-          }),
-        });
+    // test cases with 24 byte plain texts
+    const testCases24Byte = [
+      {
+        key: '00000000000000000000000000000000',
+        plainText: 'fffe00000000000000000000000000001122334455667788',
+        cipherText: '64B4D629810FDA6BAFDF08F3B0D8D2C58FB3E06A29F06558BBD8DF7220982AD5',
+      },
+      {
+        key: '10a58869d74be5a374cf867cfb473859',
+        plainText: '000000000000000000000000000000001122334455667788',
+        cipherText: '6D251E6944B051E04EAA6FB4DBF784658F74959DAEB6D04E82F8C59FDF46D66D',
+      },
+      {
+        key: 'ffffffffffffffffffe0000000000000',
+        plainText: '000000000000000000000000000000001122334455667788',
+        cipherText: '1B0D02893683B9F180458E4AA6B73982308D5A40B51DC67DA50F505D6C1AD62C',
+      },
+    ];
 
-        const key = new Buffer(testCase.key, 'hex');
-        const plainText = new Buffer(testCase.plainText, 'hex');
-        const expected = new Buffer(testCase.cipherText, 'hex');
-        encrypt(128, key, plainText, '')
-          .then(function() {
-            /* we only want the first 16 bytes, because the rest is related to
-             * the padding scheme */
-            const output = writeStream.getOutput().slice(0, 16);
-            assert(output.compare(expected) === 0,
-              `encrypt() didn't return expected output. ` +
-              `Expected ${output.toString('hex')} ` +
-              `to equal ${expected.toString('hex')}`
-            );
-          })
-          .catch(function(err) {
-            return Promise.resolve(err);
-          })
-          .then(done);
-      });
-    });
+    testCases16Byte.forEach(testEncrypt);
+    testCases24Byte.forEach(testEncrypt);
+
+    /**
+     * @description - Helper furnction for testing 'decrypt()'
+     * @param {Object} testCase
+     */
+    function testEncrypt(testCase) {
+      const key = new Buffer(testCase.key, 'hex');
+      const plainText = new Buffer(testCase.plainText, 'hex');
+      const expected = new Buffer(testCase.cipherText, 'hex');
+      it(`Correctly encrypts ${plainText.length}-byte input for 128-bit key`,
+        function(done) {
+          const writeStream = new FakeWriteStream();
+          const { encrypt } = getImplemenation({
+            fs: Object.assign(require('fs'), {
+              createWriteStream: () => {
+                return writeStream;
+              },
+              open: (path, flag, callback) => {
+                callback(null);
+              },
+            }),
+          });
+
+          encrypt(128, key, plainText, '')
+            .then(function() {
+              let output = writeStream.getOutput();
+              // don't worry about padding if multiple of state size
+              if (plainText.length % 16 === 0) {
+                output = output.slice(0, output.length - 16);
+              }
+
+              assert(output.compare(expected) === 0,
+                `encrypt() didn't return expected output. ` +
+                `Expected ${output.toString('hex')} ` +
+                `to equal ${expected.toString('hex')}`
+              );
+            })
+            .catch(function(err) {
+              return Promise.resolve(err);
+            })
+            .then(done);
+        }
+      );
+    }
+  });
+
+  describe('decrypt()', function() {
+    // Note that the cipherText has the padding added on
+    const testCases16Byte = [
+      {
+        key: '00000000000000000000000000000000',
+        plainText: 'ffffffffffffffffffffffffffffff80',
+        cipherText: 'd1788f572d98b2b16ec5d5f3922b99bc58b2431bc0bede02550f40238969ec78',
+      },
+      {
+        key: '10a58869d74be5a374cf867cfb473859',
+        plainText: '00000000000000000000000000000000',
+        cipherText: '6d251e6944b051e04eaa6fb4dbf78465698828729740e94e3b7e71fb4f503110',
+      },
+      {
+        key: 'ffffffffffffffffffe0000000000000',
+        plainText: '00000000000000000000000000000000',
+        cipherText: '1b0d02893683b9f180458e4aa6b739826c46fedbce041c0edab1246a2a1d2417',
+      },
+    ];
+
+    // test cases with 24 byte plain texts
+    const testCases24Byte = [
+      {
+        key: '00000000000000000000000000000000',
+        plainText: 'fffe00000000000000000000000000001122334455667788',
+        cipherText: '64B4D629810FDA6BAFDF08F3B0D8D2C58FB3E06A29F06558BBD8DF7220982AD5',
+      },
+      {
+        key: '10a58869d74be5a374cf867cfb473859',
+        plainText: '000000000000000000000000000000001122334455667788',
+        cipherText: '6D251E6944B051E04EAA6FB4DBF784658F74959DAEB6D04E82F8C59FDF46D66D',
+      },
+      {
+        key: 'ffffffffffffffffffe0000000000000',
+        plainText: '000000000000000000000000000000001122334455667788',
+        cipherText: '1B0D02893683B9F180458E4AA6B73982308D5A40B51DC67DA50F505D6C1AD62C',
+      },
+    ];
+
+    testCases16Byte.forEach(testDecrypt);
+    testCases24Byte.forEach(testDecrypt);
+
+    /**
+     * @description - Helper furnction for testing 'decrypt()'
+     * @param {Object} testCase
+     */
+    function testDecrypt(testCase) {
+      const key = new Buffer(testCase.key, 'hex');
+      const cipherText = new Buffer(testCase.cipherText, 'hex');
+      const expected = new Buffer(testCase.plainText, 'hex');
+      it(`Correctly decrypts ${expected.length}-byte input for 128-bit key`,
+        function(done) {
+          const writeStream = new FakeWriteStream();
+          const { decrypt } = getImplemenation({
+            fs: Object.assign(require('fs'), {
+              createWriteStream: () => {
+                return writeStream;
+              },
+              open: (path, flag, callback) => {
+                callback(null);
+              },
+            }),
+          });
+
+          decrypt(128, key, cipherText, '')
+            .then(function() {
+              const output = writeStream.getOutput();
+              assert(output.compare(expected) === 0,
+                `decrypt() didn't return expected output. ` +
+                `Expected ${output.toString('hex')} ` +
+                `to equal ${expected.toString('hex')}`
+              );
+            })
+            .catch(function(err) {
+              return Promise.resolve(err);
+            })
+            .then(done);
+        }
+      );
+    }
   });
 
   const input = new Buffer([
