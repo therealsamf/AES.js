@@ -5,11 +5,11 @@ const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 
-const AES = require('./implementation');
+const AES = require('./src/implementation');
 const encrypt = AES.encrypt;
 const decrypt = AES.decrypt;
 
-const directoryName = path.resolve(__dirname, '..');
+const directoryName = path.resolve(__dirname);
 
 /**
  * @description - Starts the AES process
@@ -40,13 +40,15 @@ function start(args) {
   }
 
   const outputFilename = process.env.AES_OUTPUT_FILE ||
-    args.outputfilename || 'output.txt';
+    args.outputfile || 'output.txt';
 
   Promise.all([
     readFile(process.env.AES_KEY_FILE || args.keyfile),
     readFile(process.env.AES_INPUT_FILE || args.inputfile),
   ])
-    .then(function(key, input) {
+    .then(function(args) {
+      const key = args[0];
+      const input = args[1];
       if (mode === 'encrypt') {
         return encrypt(keysize, key, input, outputFilename);
       } else if (mode === 'decrypt') {

@@ -16,6 +16,9 @@ const fs = require('fs');
  * @return {Promise}
  */
 function encrypt(keySize, key, input, output) {
+  if (!input) {
+    throw new Error('\'input\' cannot be undefined');
+  }
   let numberOfRounds;
   let keyLength;
   const blockSize = 4;
@@ -49,6 +52,7 @@ function encrypt(keySize, key, input, output) {
 
       const promises = [];
       const numberOfChunks = paddedInput.length / (blockSize * 4);
+
       if (numberOfChunks % 1 !== 0) {
         return Promise.reject(new Error(
           `Padded input didn\'t create a multiple of ` +
@@ -184,13 +188,12 @@ function decrypt(keySize, key, input, output) {
  * @param {Number} [blockSize=4]
  * @return {Buffer}
  */
-function padInput(input, blockSize = 4) {
-  const size = input.length;
-  let paddingLength = size % (blockSize * 4);
-
-  if (paddingLength === 0) {
-    paddingLength = blockSize * 4;
+function padInput(input, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
   }
+  const size = input.length;
+  let paddingLength = blockSize * 4 - size % (blockSize * 4);
 
   const padding = new Buffer(paddingLength)
     .fill(0);
@@ -286,7 +289,10 @@ function inverseCipher(input, keySchedule, numberOfRounds) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function copyInputToState(input, blockSize = 4) {
+function copyInputToState(input, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   const state = [[], [], [], []];
   for (let row = 0; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
@@ -304,7 +310,10 @@ function copyInputToState(input, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function copyStateToOutput(state, blockSize = 4) {
+function copyStateToOutput(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   const output = new Buffer(blockSize * 4);
   for (let row = 0; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
@@ -325,7 +334,10 @@ function copyStateToOutput(state, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function addRoundKey(state, keySchedule, round, blockSize = 4) {
+function addRoundKey(state, keySchedule, round, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   for (let row = 0; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
       state[row][column] ^= keySchedule[round * 4 + column][row];
@@ -343,7 +355,10 @@ function addRoundKey(state, keySchedule, round, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function subBytes(state, blockSize = 4) {
+function subBytes(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   for (let row = 0; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
       state[row][column] = sBox[state[row][column]];
@@ -361,7 +376,10 @@ function subBytes(state, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function invSubBytes(state, blockSize = 4) {
+function invSubBytes(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   for (let row = 0; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
       state[row][column] = invSBox[state[row][column]];
@@ -378,7 +396,10 @@ function invSubBytes(state, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array};
  */
-function shiftRows(state, blockSize = 4) {
+function shiftRows(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   const temp = new Array(4);
   for (let row = 1; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
@@ -400,7 +421,10 @@ function shiftRows(state, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array};
  */
-function invShiftRows(state, blockSize = 4) {
+function invShiftRows(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   const temp = new Array(4);
   for (let row = 1; row < 4; ++row) {
     for (let column = 0; column < blockSize; ++column) {
@@ -424,7 +448,10 @@ function invShiftRows(state, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function mixColumns(state, blockSize = 4) {
+function mixColumns(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   for (let column = 0; column < blockSize; ++column) {
     const copy = new Array(blockSize);
     const shift = new Array(blockSize);
@@ -454,7 +481,10 @@ function mixColumns(state, blockSize = 4) {
  * @param {Number} [blockSize=4]
  * @return {Array}
  */
-function invMixColumns(state, blockSize = 4) {
+function invMixColumns(state, blockSize) {
+  if (!blockSize) {
+    blockSize = 4;
+  }
   for (let column = 0; column < blockSize; ++column) {
     const copy = new Array(blockSize);
 
@@ -515,6 +545,13 @@ function multiply(a, b) {
  * @return {Array}
  */
 function keyExpansion(key, blockSize, keyLength, numberOfRounds) {
+  // invalid 128-bit key
+  if (keyLength === 4 && key.length !== 16) {
+    throw new Error('Invalid key for 128-bit algorithm');
+  } else if (keyLength === 8 && key.length !== 32) {
+    throw new Error('Invalid key for 256-bit algorithm');
+  }
+
   const keySchedule = new Array(blockSize * (numberOfRounds + 1));
 
   // Set the first keyLength words in the key schedule to the given key
