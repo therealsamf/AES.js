@@ -1,6 +1,6 @@
 {
   "name": "aes",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "AES Implementation in NodeJS",
   "bin": "src/aes.js",
   "scripts": {
