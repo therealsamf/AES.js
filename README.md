@@ -18,7 +18,7 @@ npm install
 
 This will install the necessary dependencies for AES.js to run
 
----
+
 
 ## Usage
 
@@ -51,7 +51,7 @@ npm start -- [options] [arguments]
 | --outputfile | filename | Filename where the result will be written. Defaults to `output.txt` |
 | --mode | string | mode in which to run AES. Either `encrypt` or `decrypt` |
 
----
+
 
 ## Explanation
 
@@ -63,7 +63,7 @@ There are two main methods in this file, `encrypt()` and `decrypt()`. These are 
 
 `cipher()` and `inverseCipher()` are implemented very closely to the pseudo-code [here](https://csrc.nist.gov/csrc/media/publications/fips/197/final/documents/fips-197.pdf).
 
----
+
 
 ### `keyExpansion()`
 
@@ -126,7 +126,7 @@ Similar to `cipher()`, the function then goes into a loop for the specified numb
 
 For the last round, the function calls `invShiftRows()`, `invSubBytes()`, and `addRoundKey()` before copying the state to an output buffer.
 
-`addRoundKey()` is exactly the same as in `cipher()`, expect the order that the keys are added to the state is reversed.
+`addRoundKey()` is exactly the same as in `cipher()`, except the order that the keys are added to the state is reversed.
 
 #### `invShiftRows()`
 
