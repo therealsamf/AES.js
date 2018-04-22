@@ -5,6 +5,7 @@
 
 const proxyquire = require('proxyquire').noCallThru().noPreserveCache();
 const { assert } = require('chai');
+const stream = require('stream');
 
 describe('implementation.js', function() {
   const blockSize = 4;
@@ -71,6 +72,61 @@ describe('implementation.js', function() {
     });
   });
 
+  describe('encrypt()', function() {
+    const testCases = [
+      {
+        key: '00000000000000000000000000000000',
+        plainText: 'ffffffffffffffffffffffffffffff80',
+        cipherText: 'd1788f572d98b2b16ec5d5f3922b99bc',
+      },
+      {
+        key: '10a58869d74be5a374cf867cfb473859',
+        plainText: '00000000000000000000000000000000',
+        cipherText: '6d251e6944b051e04eaa6fb4dbf78465',
+      },
+      {
+        key: 'ffffffffffffffffffe0000000000000',
+        plainText: '00000000000000000000000000000000',
+        cipherText: '1b0d02893683b9f180458e4aa6b73982',
+      },
+    ];
+
+    testCases.forEach(function(testCase) {
+      it('Correctly encrypts 16-byte input for a 128-bit key', function(done) {
+        const writeStream = new FakeWriteStream();
+        const { encrypt } = getImplemenation({
+          fs: Object.assign(require('fs'), {
+            createWriteStream: () => {
+              return writeStream;
+            },
+            open: (path, flag, callback) => {
+              callback(null);
+            },
+          }),
+        });
+
+        const key = new Buffer(testCase.key, 'hex');
+        const plainText = new Buffer(testCase.plainText, 'hex');
+        const expected = new Buffer(testCase.cipherText, 'hex');
+        encrypt(128, key, plainText, '')
+          .then(function() {
+            /* we only want the first 16 bytes, because the rest is related to
+             * the padding scheme */
+            const output = writeStream.getOutput().slice(0, 16);
+            assert(output.compare(expected) === 0,
+              `encrypt() didn't return expected output. ` +
+              `Expected ${output.toString('hex')} ` +
+              `to equal ${expected.toString('hex')}`
+            );
+          })
+          .catch(function(err) {
+            return Promise.resolve(err);
+          })
+          .then(done);
+      });
+    });
+  });
+
   const input = new Buffer([
     0x00, 0x11, 0x22, 0x33,
     0x44, 0x55, 0x66, 0x77,
@@ -110,3 +166,36 @@ describe('implementation.js', function() {
     0x1c, 0x1d, 0x1e, 0x1f,
   ]);
 });
+
+/**
+ * A stub of the Writable stream class in order to allow testing of 'encrypt()'
+ * and 'decrypt()' without having to write files
+ */
+class FakeWriteStream extends stream.Writable {
+  /**
+   * @constructor
+   */
+  constructor() {
+    super();
+
+    this.output = new Buffer(0);
+  }
+
+  /**
+   * @description - Fake write stream to check output
+   * @param {Buffer} output
+   * @param {Function} callback
+   */
+  write(output, callback) {
+    this.output = Buffer.concat([this.output, output]);
+    callback(null);
+  }
+
+  /**
+   * @description - Getter method for the output
+   * @return {Buffer}
+   */
+  getOutput() {
+    return this.output;
+  }
+}

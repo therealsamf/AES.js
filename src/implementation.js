@@ -4,28 +4,124 @@
  * File containing the implementation of the AES algorithm
  */
 
+const fs = require('fs');
+
 /**
  * @description - Encrypts the input with the key with AES according to
  * the keysize. Outputs the result to the given filename
- * @param {Number} keysize - size of the key, either 128 or 256 bits
+ * @param {Number} keySize - size of the key, either 128 or 256 bits
  * @param {Buffer} key - the key read in from the file
  * @param {Buffer} input - input read in from the input filename argument
  * @param {String} output - filename to output the results
+ * @return {Promise}
  */
-function encrypt(keysize, key, input, output) {
+function encrypt(keySize, key, input, output) {
+  let numberOfRounds;
+  let keyLength;
+  const blockSize = 4;
+  const stateSize = blockSize * 4;
 
+  if (keySize === 128) {
+    numberOfRounds = 10;
+    keyLength = 4;
+  } else if (keySize === 256) {
+    numberOfRounds = 14;
+    keyLength = 8;
+  }
+
+  const keySchedule = keyExpansion(key, blockSize, keyLength, numberOfRounds);
+  const paddedInput = padInput(input);
+
+  return new Promise(function(resolve, reject) {
+    fs.open(output, 'w', function(err, fileDescriptor) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(fileDescriptor);
+      }
+    });
+  })
+    .then(function(fd) {
+      const stream = fs.createWriteStream(null, { fd });
+      stream.on('error', function(err) {
+        return Promise.reject(err);
+      });
+
+      const promises = [];
+      const numberOfChunks = paddedInput.length / (blockSize * 4);
+      if (numberOfChunks % 1 !== 0) {
+        return Promise.reject(new Error(
+          `Padded input didn\'t create a multiple of ` +
+            `${blockSize * 4}. Aborting`
+        ));
+      }
+
+      for (let i = 0; i < numberOfChunks; ++i) {
+        promises.push(new Promise(function(resolve, reject) {
+          const inputSlice = paddedInput.slice(
+            i * stateSize, (i + 1) * stateSize
+          );
+          const output = cipher(inputSlice, keySchedule, numberOfRounds);
+          stream.write(output, function(err) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        }));
+      }
+
+      return promises.reduce(function(total, promise) {
+        return total.then(promise);
+      }, Promise.resolve());
+    })
+    .catch(function(err) {
+      throw err;
+    });
 }
 
 /**
  * @description - Decrypts the input with the key with AES according to
  * the keysize. Outputs the result to the given filename
- * @param {Number} keysize - size of the key, either 128 or 256 bits
+ * @param {Number} keySize - size of the key, either 128 or 256 bits
  * @param {Buffer} key - the key read in from the file
  * @param {Buffer} input - input read in from the input filename argument
  * @param {Buffer} output - filename to output the results
  */
-function decrypt(keysize, key, input, output) {
+function decrypt(keySize, key, input, output) {
 
+}
+
+/**
+ * @description - Adds padding to the given input
+ * @param {Buffer} input
+ * @param {Number} [blockSize=4]
+ * @return {Buffer}
+ */
+function padInput(input, blockSize = 4) {
+  const size = input.length;
+  let paddingLength = size % (blockSize * 4);
+
+  if (paddingLength === 0) {
+    paddingLength = blockSize * 4;
+  }
+
+  const padding = new Buffer(paddingLength)
+    .fill(0);
+  padding[paddingLength - 1] = paddingLength;
+
+  return Buffer.concat([input, padding]);
+}
+
+/**
+ * @description - Removes padding from the given input
+ * @param {Buffer} input
+ * @return {Buffer}
+ */
+function removePaddingFromInput(input) {
+  const paddingLength = input[input.length - 1];
+  return input.slice(0, input.length - paddingLength);
 }
 
 /**
@@ -39,6 +135,10 @@ function decrypt(keysize, key, input, output) {
  */
 function cipher(input, keySchedule, numberOfRounds) {
   const blockSize = 4; // this always is 4 for the AES algorithm
+  // sanity check
+  if (input.length !== blockSize * 4) {
+    throw new Error('input isn\'t a valid size in cipher()');
+  }
 
   const state = copyInputToState(input, blockSize);
 
