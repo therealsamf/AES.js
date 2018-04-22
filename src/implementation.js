@@ -88,6 +88,7 @@ function encrypt(keySize, key, input, output) {
  * @param {Buffer} key - the key read in from the file
  * @param {Buffer} input - input read in from the input filename argument
  * @param {Buffer} output - filename to output the results
+ * @return {Promise}
  */
 function decrypt(keySize, key, input, output) {
   let numberOfRounds;
@@ -149,7 +150,11 @@ function decrypt(keySize, key, input, output) {
         const inputSlice = input.slice(
           (numberOfChunks - 1) * stateSize, numberOfChunks * stateSize
         );
-        const paddingOutput = inverseCipher(inputSlice, keySchedule, numberOfRounds);
+        const paddingOutput = inverseCipher(
+          inputSlice,
+          keySchedule,
+          numberOfRounds
+        );
         const output = removePaddingFromInput(paddingOutput);
         if (output.length <= 0) {
           resolve();
