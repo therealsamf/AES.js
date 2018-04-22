@@ -18,6 +18,8 @@ npm install
 
 This will install the necessary dependencies for AES.js to run
 
+---
+
 ## Usage
 
 To use the program, run
@@ -49,6 +51,8 @@ npm start -- [options] [arguments]
 | --outputfile | filename | Filename where the result will be written. Defaults to `output.txt` |
 | --mode | string | mode in which to run AES. Either `encrypt` or `decrypt` |
 
+---
+
 ## Explanation
 
 The `aes.js` file is responsible for validating input, user interface, and loading up the initial files. The AES algorithm itself is implemented in `src/implementation.js`.
@@ -58,6 +62,8 @@ There are two main methods in this file, `encrypt()` and `decrypt()`. These are 
  2. Breaking up the input into chunks of 16 bytes and calling `cipher()` and `inverseCipher()` respectively, and then writing the output to the given filename.
 
 `cipher()` and `inverseCipher()` are implemented very closely to the pseudo-code [here](https://csrc.nist.gov/csrc/media/publications/fips/197/final/documents/fips-197.pdf).
+
+---
 
 ### `cipher()`
 
@@ -88,6 +94,8 @@ Shifts each row in the state array 0, 1, 2, or 3 indices according to the index 
 #### `mixColumns()`
 
 This is the most complicated step. It performs matrix multiplication on the columns of the state. For the `mixColumns()` function, the matrix it uses is defined [here](https://en.wikipedia.org/wiki/Rijndael_MixColumns#Step_3:_matrix_representation). This function doesn't use the proper multiplication as defined by [finite field arithmetic](https://en.wikipedia.org/wiki/Finite_field_arithmetic#Multiplication), but instead uses an optimization for multiplying by 2 and 3 by using bit shifts and overflow checks. The implementation for this was inspired from [here](https://en.wikipedia.org/wiki/Rijndael_MixColumns#Implementation_example).
+
+---
 
 ### `inverseCipher()`
 
